@@ -72,13 +72,19 @@ infile_path = "/dev/input/event0"
 # };
 #
 # type:
-#  EV_REL = 0x02
+EV_REL = 0x02
 # code:
-#  REL_X     = 0x00
-#  REL_Y     = 0x01
-#  REL_WHEEL = 0x08
+REL_X     = 0x00
+REL_Y     = 0x01
+REL_WHEEL = 0x08
 #
+# mouse(made by HP)
+# 45.534count/mm
+C = 45.5 # [count/mm]
 #long int, long int, unsigned short, unsigned short, int
+
+#L = 4200.0
+L = 55.0 # [mm]
 
 class Mouse:
     def __init__(self):
@@ -95,51 +101,67 @@ class Mouse:
 
     def getDelta(self):
         event = self.in_file.read(self.EVENT_SIZE)
-        return struct.unpack(self.FORMAT, event)
+        (tv_sec, tv_usec, type, code, value) = struct.unpack(self.FORMAT, event)
+        return (tv_sec, tv_usec, type, code, value)
 
-# 
-def rotation(theta):
-    print "rotation:", theta
-    if theta > 0:
-        # rotate counterclockwise
-        # Motor R is forward
-        # Motor L is backward
-        # dt = -getmx()/L
-        while theta < dt:
-            dt = dt - getmx()/L
-        # Motor stop
-        
-    if theta < 0:
-        # rotate clockwise
-        # Motor R is backward
-        # Motor L is forward
-        # dt = -getmx()/L
-        while theta > dt:
-            dt = dt - getmx()/L
-        # Motor stop
+    def getDX(self):
+        while True:
+            event = self.in_file.read(self.EVENT_SIZE)
+            (tv_sec, tv_usec, type, code, value) = struct.unpack(self.FORMAT, event)
+            if type == EV_REL and code == REL_X:
+                return value/C # [mm]
 
-def forward(l):
-    print "forward:", l
-    if l > 0:
-        # forward
-        # Motor R is forward
-        # Motor L is forward
-        # dl = getmy();
-        while l < dl:
-            dl = dl + getmy()
-        # Motor stop
-        
-    if l < 0:
-        # backward
-        # Motor R is backward
-        # Motor L is forward
-        # dt = -getmx()/L;
-        while l > dl:
-            dl = dl + getmy()
-        # Motor stop
+    def getDY(self):
+        while True:
+            event = self.in_file.read(self.EVENT_SIZE)
+            (tv_sec, tv_usec, type, code, value) = struct.unpack(self.FORMAT, event)
+            if type == EV_REL and code == REL_Y:
+                return value/C # [mm]
+
+    def rotation(self, theta):
+        if theta > 0:
+            # rotate counterclockwise
+            # Motor R is forward
+            # Motor L is backward
+            dt = -self.getDX()/L
+            while theta > dt:
+                dt = dt - self.getDX()/L
+            # Moter stop
+    
+        if theta < 0:
+            # rotate clockwise
+            # Motor R is backward
+            # Motor L is forward
+            dt = -self.getDX()/L
+            while theta < dt:
+                dt = dt - self.getDX()/L
+            # Moter stop
+    
+
+    def forward(self, l):
+        if l > 0:
+            # forward
+            # Motor R is forward
+            # Motor L is forward
+            dl = -self.getDY()
+            while l > dl:
+                dl = dl - self.getDY()
+            # Motor stop
+                
+        if l < 0:
+            # backward
+            # Motor R is backward
+            # Motor L is forward
+            dl = -self.getDY()
+            while l < dl:
+                dl = dl - self.getDY()
+            # Motor stop
 
 if __name__ == '__main__':
     a = Mouse()
-    (tv_sec, tv_usec, type, code, value) = a.getDelta()
-    print code
+    print 'start'
+    #a.rotation(-3.1415/2.0);
+    a.forward(-100);
+    print 'stop'
+
     
