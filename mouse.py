@@ -2,6 +2,7 @@
 import struct
 import time
 import sys
+import RPi.GPIO as GPIO
 
 infile_path = "/dev/input/event0"
 
@@ -23,44 +24,52 @@ infile_path = "/dev/input/event0"
 # Motor L
 #  GPIO25:INB1
 #  GPIO24:INB2
+# ENABLE
+#  PWM:ENABLE
+INA1 = 7
+INA2 = 8
+INB1 = 25
+INB2 = 24
+ENABLE = 18
 
-# initialize device driver
-# echo 7 > /sys/class/gpio/export
-# echo 8 > /sys/class/gpio/export
-# echo 18 > /sys/class/gpio/export
-# echo 24 > /sys/class/gpio/export
-# echo 25 > /sys/class/gpio/export
-#
-# echo out > /sys/class/gpio/gpio7/direction
-# echo out > /sys/class/gpio/gpio8/direction
-# echo out > /sys/class/gpio/gpio18/direction
-# echo out > /sys/class/gpio/gpio24/direction
-# echo out > /sys/class/gpio/gpio25/direction
-#
-# echo 0 > /sys/class/gpio/gpio7/value
-# echo 0 > /sys/class/gpio/gpio8/value
-# echo 1 > /sys/class/gpio/gpio18/value
-# echo 0 > /sys/class/gpio/gpio24/value
-# echo 0 > /sys/class/gpio/gpio25/value
-#
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(INA1, GPIO.OUT)
+GPIO.setup(INA2, GPIO.OUT)
+GPIO.setup(INB1, GPIO.OUT)
+GPIO.setup(INB2, GPIO.OUT)
+GPIO.setup(ENABLE, GPIO.OUT)
+GPIO.output(ENABLE, True)
 
-# Command
-# forward:
-#  echo 1 > /sys/class/gpio/gpio7/value
-#  echo 0 > /sys/class/gpio/gpio8/value
-#  echo 0 > /sys/class/gpio/gpio24/value
-#  echo 1 > /sys/class/gpio/gpio25/value
-# stop:
-#  echo 0 > /sys/class/gpio/gpio7/value
-#  echo 0 > /sys/class/gpio/gpio8/value
-#  echo 0 > /sys/class/gpio/gpio24/value
-#  echo 0 > /sys/class/gpio/gpio25/value
-# backward:
-#  echo 0 > /sys/class/gpio/gpio7/value
-#  echo 1 > /sys/class/gpio/gpio8/value
-#  echo 1 > /sys/class/gpio/gpio24/value
-#  echo 0 > /sys/class/gpio/gpio25/value
+def stp():
+    GPIO.output(INA1, False)
+    GPIO.output(INA2, False)
+    GPIO.output(INB1, False)
+    GPIO.output(INB2, False)
 
+def fwd():
+    GPIO.output(INA1, True)
+    GPIO.output(INA2, False)
+    GPIO.output(INB1, True)
+    GPIO.output(INB2, False)
+
+def bwd():
+    GPIO.output(INA1, True)
+    GPIO.output(INA2, False)
+    GPIO.output(INB1, True)
+    GPIO.output(INB2, False)
+
+def ccw():
+    GPIO.output(INA1, True)
+    GPIO.output(INA2, False)
+    GPIO.output(INB1, False)
+    GPIO.output(INB2, True)
+
+def cw():
+    GPIO.output(INA1, False)
+    GPIO.output(INA2, True)
+    GPIO.output(INB1, True)
+    GPIO.output(INB2, False)
+    
 #
 # /usr/include/linux/input.h
 #
@@ -109,6 +118,7 @@ class Mouse:
             event = self.in_file.read(self.EVENT_SIZE)
             (tv_sec, tv_usec, type, code, value) = struct.unpack(self.FORMAT, event)
             if type == EV_REL and code == REL_X:
+                print 'X:', value/C
                 return value/C # [mm]
 
     def getDY(self):
@@ -116,52 +126,58 @@ class Mouse:
             event = self.in_file.read(self.EVENT_SIZE)
             (tv_sec, tv_usec, type, code, value) = struct.unpack(self.FORMAT, event)
             if type == EV_REL and code == REL_Y:
+                print 'Y:', value/C
                 return value/C # [mm]
 
     def rotation(self, theta):
         if theta > 0:
             # rotate counterclockwise
-            # Motor R is forward
-            # Motor L is backward
+            ccw()
             dt = -self.getDX()/L
             while theta > dt:
                 dt = dt - self.getDX()/L
             # Moter stop
+            stp()
     
         if theta < 0:
             # rotate clockwise
-            # Motor R is backward
-            # Motor L is forward
+            cw()
             dt = -self.getDX()/L
             while theta < dt:
                 dt = dt - self.getDX()/L
             # Moter stop
-    
+            stp()
 
     def forward(self, l):
         if l > 0:
             # forward
-            # Motor R is forward
-            # Motor L is forward
+            fwd()
             dl = -self.getDY()
             while l > dl:
                 dl = dl - self.getDY()
+                print 'dl:', dl
             # Motor stop
-                
+            stp()
+            
         if l < 0:
             # backward
-            # Motor R is backward
-            # Motor L is forward
+            bwd()
             dl = -self.getDY()
             while l < dl:
                 dl = dl - self.getDY()
+                print 'dl:', dl
             # Motor stop
+            stp()
 
 if __name__ == '__main__':
     a = Mouse()
     print 'start'
-    #a.rotation(-3.1415/2.0);
+    a.rotation(-3.1415/2.0);
+    print 'stop'
+    print 'start'
     a.forward(-100);
     print 'stop'
+
+
 
     
